@@ -1,16 +1,7 @@
-#===== Default ignored =====#
-# Folders #
-.sublime-project-files/
+*.sublime-*
 __pycache__/
 .venv/
 resources/
-data/
 logs/
-# Files #
-__main__.py
-__init__.py
-scratch.py
-#===== Project ignored =====#
-# Folders #
-tests/
-# Files #
+.ruff_cache/
+.pytest_cache/
