@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "custom-image-viewer"
+version = "1.1.0"
+description = "A custom image viewer with EXIF metadata support and interactive map visualization."
+requires-python = ">=3.9"
+dependencies = [
+    "ttkbootstrap>=1.10.1",
+    "Pillow>=10.0.0",
+    "pyexiv2>=2.14.0",
+    "geopy>=2.4.1",
+    "folium>=0.17.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-mock",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+image-viewer = "custom_image_viewer.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/custom_image_viewer"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

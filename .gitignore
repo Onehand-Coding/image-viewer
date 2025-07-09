@@ -3,5 +3,7 @@ __pycache__/
 .venv/
 resources/
 logs/
+data/
 .ruff_cache/
 .pytest_cache/
+.coverage

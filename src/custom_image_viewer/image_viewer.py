@@ -1,3 +1,4 @@
+import logging
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
@@ -5,21 +6,28 @@ from tkinter import filedialog
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 
-from image_info import ImageInfo
-from configs import logs_folder, configure_logging, logger
+from .image_info import ImageInfo
+from .config import (
+    configure_logging,
+    APP_NAME,
+    MASTER_SIZE,
+    INFO_WINDOW_SIZE,
+    INFO_WINDOW_ALT_SIZE,
+    SUPPORTED_IMAGE_FORMATS,
+)
 
-LOG_FILE = logs_folder / "logs.txt"
-
-MASTER_SIZE = '500x550'
-INFO_WINDOW_SIZE = '300x150'
-INFO_WINDOW_ALT_SIZE = '200x100'
+logger = logging.getLogger(__name__)
 
 
 class InfoWindow(ttk.Toplevel):
     def __init__(self, image_info, info_needed, master=None):
         super().__init__(master)
         self.title(info_needed)
-        self.geometry(INFO_WINDOW_SIZE if info_needed == 'Location' and image_info.address else INFO_WINDOW_ALT_SIZE)
+        self.geometry(
+            INFO_WINDOW_SIZE
+            if info_needed == "Location" and image_info.address
+            else INFO_WINDOW_ALT_SIZE
+        )
 
         self.image_info = image_info
         self.info_needed = info_needed
@@ -31,35 +39,33 @@ class InfoWindow(ttk.Toplevel):
         info_text = {
             "Date taken": f"Date: {self.image_info.date}\nTime: {self.image_info.time}",
             "Location": f"Coordinates: {self.image_info.coordinates}\nAddress: {self.image_info.address}",
-            "Device used": f"Make: {self.image_info.device_make}\nModel: {self.image_info.device_model}"
+            "Device used": f"Make: {self.image_info.device_make}\nModel: {self.image_info.device_model}",
         }.get(self.info_needed, "")
 
         view_map_frame = ttk.Frame(self)
-        view_map_frame.pack(side='bottom')
+        view_map_frame.pack(side="bottom")
 
         info_text_widget = ttk.Text(self, wrap=ttk.WORD, width=40, height=8)
         info_text_widget.insert(ttk.END, info_text)
         info_text_widget.config(state=ttk.DISABLED)
         info_text_widget.pack()
 
-        if self.info_needed == 'Location' and self.image_info.address:
+        if self.info_needed == "Location" and self.image_info.address:
             view_map_button = ttk.Button(
                 view_map_frame,
                 text="View on map",
                 style="TButton",
-                command=self.image_info.view_location_on_map
+                command=self.image_info.view_location_on_map,
             )
             view_map_button.pack()
 
 
 class ImageViewer:
-    IMAGE_FILES = ('.png', '.jpg', '.jpeg', '.gif', '.bmp')
-
     def __init__(self, master):
         self.master = master
         self.master.geometry(MASTER_SIZE)
 
-        self.master.title("Kirby Image Viewer")
+        self.master.title(APP_NAME)
 
         self.image_label = ttk.Label(self.master)
         self.image_label.pack()
@@ -94,11 +100,15 @@ class ImageViewer:
 
         # Navigation bar
         self.nav_frame = ttk.Frame(self.master)
-        self.nav_frame.pack(side='bottom', fill='x')
+        self.nav_frame.pack(side="bottom", fill="x")
 
         # Navigation Buttons
-        self.prev_button = tk.Button(self.nav_frame, text="Previous", command=self.show_previous_image)
-        self.next_button = tk.Button(self.nav_frame, text="Next", command=self.show_next_image)
+        self.prev_button = tk.Button(
+            self.nav_frame, text="Previous", command=self.show_previous_image
+        )
+        self.next_button = tk.Button(
+            self.nav_frame, text="Next", command=self.show_next_image
+        )
 
         # Status bar
         self.status_bar = ttk.Label(self.master, text="", anchor=tk.W)
@@ -115,25 +125,31 @@ class ImageViewer:
         try:
             return self.image_list[self.current_index]
         except IndexError:
-            logger.error('Image list is empty.')
+            logger.error("Image list is empty.")
 
     @property
     def image_info(self):
         return ImageInfo(self.image_path)
 
     def is_image(self, file):
-        return file.is_file() and file.suffix.lower() in self.IMAGE_FILES
+        return file.is_file() and file.suffix.lower() in SUPPORTED_IMAGE_FORMATS
 
     def add_info_menu(self):
         if self.is_info_menu_open:
             self.remove_info_menu()
 
         info_menu = tk.Menu(self.menu_bar, tearoff=0)
-        info_menu.add_command(label="Date taken", command=lambda: self.show_image_info('Date taken'))
+        info_menu.add_command(
+            label="Date taken", command=lambda: self.show_image_info("Date taken")
+        )
         info_menu.add_separator()
-        info_menu.add_command(label="Location", command=lambda: self.show_image_info('Location'))
+        info_menu.add_command(
+            label="Location", command=lambda: self.show_image_info("Location")
+        )
         info_menu.add_separator()
-        info_menu.add_command(label="Device used", command=lambda: self.show_image_info('Device used'))
+        info_menu.add_command(
+            label="Device used", command=lambda: self.show_image_info("Device used")
+        )
         self.menu_bar.add_cascade(label="Info", menu=info_menu)
 
         self.is_info_menu_open = True
@@ -156,12 +172,18 @@ class ImageViewer:
         self.close_info_window()
 
     def show_nav_buttons(self):
-        self.prev_button.pack(side='left', padx=5)
-        self.next_button.pack(side='right', padx=5)
+        self.prev_button.pack(side="left", padx=5)
+        self.next_button.pack(side="right", padx=5)
 
     def update_nav_button_state(self):
-        self.prev_button.config(state=tk.NORMAL if self.current_index > 0 else tk.DISABLED)
-        self.next_button.config(state=tk.NORMAL if self.current_index < len(self.image_list) - 1 else tk.DISABLED)
+        self.prev_button.config(
+            state=tk.NORMAL if self.current_index > 0 else tk.DISABLED
+        )
+        self.next_button.config(
+            state=tk.NORMAL
+            if self.current_index < len(self.image_list) - 1
+            else tk.DISABLED
+        )
 
     def update_status_bar(self):
         status_text = f"Image {self.current_index + 1} of {len(self.image_list)}"
@@ -178,7 +200,7 @@ class ImageViewer:
             self.display_image()
 
     def show_about_dialog(self):
-        about_text = "Image Viewer App\nVersion 1.0\n\n© 2024 Kirby Image Viewer App"
+        about_text = "Image Viewer App\nVersion 1.0\n\n© 2024 Image Viewer App"
         tk.messagebox.showinfo("About", about_text)
 
     def show_image_info(self, info_needed):
@@ -192,12 +214,16 @@ class ImageViewer:
             self.info_window.destroy()
 
     def load_image(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*.jpeg;*.gif;*.bmp")])
+        file_path = filedialog.askopenfilename(
+            filetypes=[("All Image Files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp")]
+        )
         if not file_path:
             return
         file_path = Path(file_path)
         self.image_folder = file_path.parent
-        self.image_list = [file for file in self.image_folder.glob("*") if self.is_image(file)]
+        self.image_list = [
+            file for file in self.image_folder.glob("*") if self.is_image(file)
+        ]
         self.current_index = self.image_list.index(file_path)
         self.display_image()
         self.close_info_window()
@@ -206,7 +232,7 @@ class ImageViewer:
         try:
             image = Image.open(self.image_path)
         except (IOError, OSError) as e:
-            logger.error(f'Error opening image: {e}')
+            logger.error(f"Error opening image: {e}")
             return
         image = self.resize_image(image)
         self.image = ImageTk.PhotoImage(image)
@@ -231,9 +257,3 @@ class ImageViewer:
 
         resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
         return resized_image
-
-
-if __name__ == "__main__":
-    configure_logging()
-    app = ImageViewer(ttk.Window(themename='darkly'))
-    app.master.mainloop()
