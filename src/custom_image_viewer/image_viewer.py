@@ -1,20 +1,20 @@
 import logging
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 
-from .image_info import ImageInfo
 from .config import (
-    configure_logging,
     APP_NAME,
-    MASTER_SIZE,
-    INFO_WINDOW_SIZE,
+    APP_VERSION,
     INFO_WINDOW_ALT_SIZE,
+    INFO_WINDOW_SIZE,
+    MASTER_SIZE,
     SUPPORTED_IMAGE_FORMATS,
 )
+from .image_info import ImageInfo
 
 logger = logging.getLogger(__name__)
 
@@ -23,24 +23,40 @@ class InfoWindow(ttk.Toplevel):
     def __init__(self, image_info, info_needed, master=None):
         super().__init__(master)
         self.title(info_needed)
-        self.geometry(
-            INFO_WINDOW_SIZE
-            if info_needed == "Location" and image_info.address
-            else INFO_WINDOW_ALT_SIZE
-        )
-
         self.image_info = image_info
         self.info_needed = info_needed
         self.is_open = False
-
+        self.coordinates = image_info.coordinates
+        self.address = (
+            image_info.address
+            if info_needed == "Location" and self.coordinates
+            else None
+        )
+        self.geometry(
+            INFO_WINDOW_SIZE
+            if info_needed == "Location" and self.coordinates
+            else INFO_WINDOW_ALT_SIZE
+        )
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.create_widgets()
 
+    def _on_close(self):
+        self.is_open = False
+        self.destroy()
+
     def create_widgets(self):
-        info_text = {
-            "Date taken": f"Date: {self.image_info.date}\nTime: {self.image_info.time}",
-            "Location": f"Coordinates: {self.image_info.coordinates}\nAddress: {self.image_info.address}",
-            "Device used": f"Make: {self.image_info.device_make}\nModel: {self.image_info.device_model}",
-        }.get(self.info_needed, "")
+        if self.info_needed == "Date taken":
+            info_text = f"Date: {self.image_info.date}\nTime: {self.image_info.time}"
+        elif self.info_needed == "Location":
+            address = self.address or "Not available"
+            info_text = f"Coordinates: {self.coordinates}\nAddress: {address}"
+        elif self.info_needed == "Device used":
+            info_text = (
+                f"Make: {self.image_info.device_make}\n"
+                f"Model: {self.image_info.device_model}"
+            )
+        else:
+            info_text = ""
 
         view_map_frame = ttk.Frame(self)
         view_map_frame.pack(side="bottom")
@@ -50,7 +66,7 @@ class InfoWindow(ttk.Toplevel):
         info_text_widget.config(state=ttk.DISABLED)
         info_text_widget.pack()
 
-        if self.info_needed == "Location" and self.image_info.address:
+        if self.info_needed == "Location" and self.coordinates:
             view_map_button = ttk.Button(
                 view_map_frame,
                 text="View on map",
@@ -118,20 +134,21 @@ class ImageViewer:
         self.master.bind("<Left>", lambda event: self.show_previous_image())
         self.master.bind("<Right>", lambda event: self.show_next_image())
         self.master.bind("<F11>", lambda event: self.toggle_fullscreen())
+        self.master.bind("<Control-o>", lambda event: self.load_image())
+        self.master.bind("<Escape>", lambda event: self.exit_fullscreen())
 
     @property
-    def image_path(self):
+    def image_path(self) -> Path | None:
+        if not self.image_list:
+            return None
         self.current_index = max(0, min(self.current_index, len(self.image_list) - 1))
-        try:
-            return self.image_list[self.current_index]
-        except IndexError:
-            logger.error("Image list is empty.")
+        return self.image_list[self.current_index]
 
     @property
-    def image_info(self):
+    def image_info(self) -> ImageInfo:
         return ImageInfo(self.image_path)
 
-    def is_image(self, file):
+    def is_image(self, file: Path) -> bool:
         return file.is_file() and file.suffix.lower() in SUPPORTED_IMAGE_FORMATS
 
     def add_info_menu(self):
@@ -199,9 +216,19 @@ class ImageViewer:
         if self.image_path:
             self.display_image()
 
+    def exit_fullscreen(self):
+        if not self.master.attributes("-fullscreen"):
+            return
+        self.master.attributes("-fullscreen", False)
+        self.view_menu.entryconfig(0, label="Full Screen")
+        if self.image_path:
+            self.display_image()
+
     def show_about_dialog(self):
-        about_text = "Image Viewer App\nVersion 1.0\n\n© 2024 Image Viewer App"
-        tk.messagebox.showinfo("About", about_text)
+        about_text = (
+            f"Image Viewer App\nVersion {APP_VERSION}\n\n© 2024 Image Viewer App"
+        )
+        messagebox.showinfo("About", about_text)
 
     def show_image_info(self, info_needed):
         self.close_info_window()
@@ -212,27 +239,41 @@ class ImageViewer:
     def close_info_window(self):
         if self.info_window and self.info_window.is_open:
             self.info_window.destroy()
+        self.info_window = None
 
     def load_image(self):
         file_path = filedialog.askopenfilename(
-            filetypes=[("All Image Files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp")]
+            filetypes=[
+                (
+                    "All Image Files",
+                    "*.png *.jpg *.jpeg *.gif *.bmp *.webp",
+                )
+            ]
         )
         if not file_path:
             return
         file_path = Path(file_path)
         self.image_folder = file_path.parent
-        self.image_list = [
-            file for file in self.image_folder.glob("*") if self.is_image(file)
-        ]
-        self.current_index = self.image_list.index(file_path)
+        self.image_list = sorted(
+            (file for file in self.image_folder.glob("*") if self.is_image(file)),
+            key=lambda file: file.name.lower(),
+        )
+        try:
+            self.current_index = self.image_list.index(file_path)
+        except ValueError:
+            self.image_list.append(file_path)
+            self.current_index = len(self.image_list) - 1
         self.display_image()
         self.close_info_window()
 
     def display_image(self):
+        image_path = self.image_path
+        if image_path is None:
+            return
         try:
-            image = Image.open(self.image_path)
-        except (IOError, OSError) as e:
-            logger.error(f"Error opening image: {e}")
+            image = Image.open(image_path)
+        except (OSError, TypeError) as exc:
+            logger.error("Error opening image: %s", exc)
             return
         image = self.resize_image(image)
         self.image = ImageTk.PhotoImage(image)
