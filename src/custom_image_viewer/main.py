@@ -1,6 +1,7 @@
 import ttkbootstrap as ttk
+
+from .config import AVAILABLE_THEMES, configure_logging
 from .image_viewer import ImageViewer
-from .config import configure_logging, AVAILABLE_THEMES
 
 
 def main():
