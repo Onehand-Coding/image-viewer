@@ -1306,5 +1306,21 @@ Deviations made during execution:
 - The About dialog uses `APP_VERSION` instead of a hard-coded version.
 - `ImageViewer.image_path` and `image_info` have return annotations to narrow
   types after the empty-list guard.
-- The test suite has 36 tests. No `eval(` remains in `src`.
+- The test suite has 44 tests. No `eval(` remains in `src`.
+
+Post-review fixes:
+
+- Empty and whitespace-only GPS components now raise and return `None`
+  coordinates instead of placing the image at `(0, 0)`.
+- `InfoWindow` computes coordinates once and calls geocoding only for the
+  Location view. The map button is gated on coordinates, so it remains available
+  when geocoding fails.
+- Map output creation is wrapped and returns `None` on write or browser errors.
+- `WM_DELETE_WINDOW` resets the info-window open flag, and `close_info_window`
+  clears the reference.
+- Added tests for whitespace GPS, Nominatim timeout/user agent, EXIF failure,
+  map save failure, nested map output, main entry-point calls, shortcut
+  bindings, and map-button behavior.
+- `APP_VERSION` is `1.1.0`, and `.gitignore` now covers `dist/`, `build/`, and
+  `*.egg-info/`.
 

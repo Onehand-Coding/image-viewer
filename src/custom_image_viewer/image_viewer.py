@@ -23,24 +23,40 @@ class InfoWindow(ttk.Toplevel):
     def __init__(self, image_info, info_needed, master=None):
         super().__init__(master)
         self.title(info_needed)
-        self.geometry(
-            INFO_WINDOW_SIZE
-            if info_needed == "Location" and image_info.address
-            else INFO_WINDOW_ALT_SIZE
-        )
-
         self.image_info = image_info
         self.info_needed = info_needed
         self.is_open = False
-
+        self.coordinates = image_info.coordinates
+        self.address = (
+            image_info.address
+            if info_needed == "Location" and self.coordinates
+            else None
+        )
+        self.geometry(
+            INFO_WINDOW_SIZE
+            if info_needed == "Location" and self.coordinates
+            else INFO_WINDOW_ALT_SIZE
+        )
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.create_widgets()
 
+    def _on_close(self):
+        self.is_open = False
+        self.destroy()
+
     def create_widgets(self):
-        info_text = {
-            "Date taken": f"Date: {self.image_info.date}\nTime: {self.image_info.time}",
-            "Location": f"Coordinates: {self.image_info.coordinates}\nAddress: {self.image_info.address}",
-            "Device used": f"Make: {self.image_info.device_make}\nModel: {self.image_info.device_model}",
-        }.get(self.info_needed, "")
+        if self.info_needed == "Date taken":
+            info_text = f"Date: {self.image_info.date}\nTime: {self.image_info.time}"
+        elif self.info_needed == "Location":
+            address = self.address or "Not available"
+            info_text = f"Coordinates: {self.coordinates}\nAddress: {address}"
+        elif self.info_needed == "Device used":
+            info_text = (
+                f"Make: {self.image_info.device_make}\n"
+                f"Model: {self.image_info.device_model}"
+            )
+        else:
+            info_text = ""
 
         view_map_frame = ttk.Frame(self)
         view_map_frame.pack(side="bottom")
@@ -50,7 +66,7 @@ class InfoWindow(ttk.Toplevel):
         info_text_widget.config(state=ttk.DISABLED)
         info_text_widget.pack()
 
-        if self.info_needed == "Location" and self.image_info.address:
+        if self.info_needed == "Location" and self.coordinates:
             view_map_button = ttk.Button(
                 view_map_frame,
                 text="View on map",
@@ -223,6 +239,7 @@ class ImageViewer:
     def close_info_window(self):
         if self.info_window and self.info_window.is_open:
             self.info_window.destroy()
+        self.info_window = None
 
     def load_image(self):
         file_path = filedialog.askopenfilename(

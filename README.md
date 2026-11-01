@@ -14,7 +14,7 @@ navigation, EXIF metadata, GPS coordinates, address lookup, and Folium maps.
 - View capture date, camera make/model, and GPS coordinates.
 - Geocode GPS coordinates to an address.
 - Open a Folium map for images with GPS data.
-- Toggle fullscreen with F11 or Escape.
+- Toggle fullscreen with F11; press Escape to exit fullscreen.
 - Log errors without crashing the viewer.
 
 ## Install

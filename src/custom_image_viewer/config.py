@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "Image Viewer"
-APP_VERSION = "1.1"
+APP_VERSION = "1.1.0"
 MASTER_SIZE = "500x550"
 INFO_WINDOW_SIZE = "300x150"
 INFO_WINDOW_ALT_SIZE = "200x100"

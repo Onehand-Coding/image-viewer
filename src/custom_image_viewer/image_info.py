@@ -16,8 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 def _parse_gps_component(value: str) -> float:
+    tokens = str(value).split()
+    if not tokens:
+        raise ValueError("Empty GPS component")
     total = 0.0
-    for index, token in enumerate(str(value).split()):
+    for index, token in enumerate(tokens):
         if "/" in token:
             numerator, denominator = token.split("/", 1)
             part = float(numerator) / float(denominator)
@@ -64,11 +67,11 @@ class ImageInfo:
         return self._metadata
 
     @property
-    def device_model(self):
+    def device_model(self) -> str | None:
         return self.metadata.get("Exif.Image.Model")
 
     @property
-    def device_make(self):
+    def device_make(self) -> str | None:
         return self.metadata.get("Exif.Image.Make")
 
     def _parse_datetime_info(self, datetime_info: str) -> datetime.datetime | None:
@@ -94,7 +97,7 @@ class ImageInfo:
         return None
 
     @property
-    def date(self):
+    def date(self) -> str | None:
         datetime_info = self.get_datetime_info()
         if not datetime_info:
             return None
@@ -102,7 +105,7 @@ class ImageInfo:
         return parsed.strftime("%B %d, %Y") if parsed else None
 
     @property
-    def time(self):
+    def time(self) -> str | None:
         datetime_info = self.get_datetime_info()
         if not datetime_info:
             return None
@@ -128,7 +131,7 @@ class ImageInfo:
         return latitude, longitude
 
     @property
-    def address(self):
+    def address(self) -> str | None:
         coordinates = self.coordinates
         if coordinates is None:
             return None
@@ -154,9 +157,13 @@ class ImageInfo:
         )
         folium.Marker([latitude, longitude], popup=MAP_POPUP_TEXT).add_to(map_location)
         target_dir = output_dir or get_data_dir()
-        target_dir.mkdir(parents=True, exist_ok=True)
         stem = self.image_path.stem if self.image_path else "location"
         map_file = target_dir / f"{stem}_location.html"
-        map_location.save(str(map_file))
-        webbrowser.open(str(map_file))
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+            map_location.save(str(map_file))
+            webbrowser.open(str(map_file))
+        except Exception as exc:
+            logger.error("Could not write map for %s: %s", self.image_path, exc)
+            return None
         return map_file

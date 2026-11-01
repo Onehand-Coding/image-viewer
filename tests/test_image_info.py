@@ -108,6 +108,16 @@ def test_coordinates_missing_or_bad():
     )
 
 
+def test_whitespace_gps_returns_none():
+    info = make_info(
+        {
+            "Exif.GPSInfo.GPSLatitude": " ",
+            "Exif.GPSInfo.GPSLongitude": " ",
+        }
+    )
+    assert info.coordinates is None
+
+
 def test_address_uses_geocoder(monkeypatch):
     info = make_info(
         {
@@ -119,9 +129,11 @@ def test_address_uses_geocoder(monkeypatch):
     )
     geocoder = MagicMock()
     geocoder.reverse.return_value.address = "Somewhere"
-    monkeypatch.setattr(image_info, "Nominatim", lambda **kwargs: geocoder)
+    factory = MagicMock(return_value=geocoder)
+    monkeypatch.setattr(image_info, "Nominatim", factory)
 
     assert info.address == "Somewhere"
+    factory.assert_called_once_with(user_agent="image-viewer", timeout=5)
     geocoder.reverse.assert_called_once_with((14.583333, 120.966667), language="en")
 
 
@@ -150,10 +162,13 @@ def test_view_location_on_map_writes_file(tmp_path, monkeypatch):
     )
     opened = []
     monkeypatch.setattr(image_info.webbrowser, "open", lambda url: opened.append(url))
+    output = tmp_path / "nested" / "maps"
 
-    map_file = info.view_location_on_map(tmp_path)
+    map_file = info.view_location_on_map(output)
 
     assert map_file is not None
+    assert map_file.name == "test_location.html"
+    assert map_file.parent == output
     assert map_file.exists()
     assert map_file.stat().st_size > 0
     assert opened == [str(map_file)]
@@ -168,5 +183,33 @@ def test_view_location_without_gps_returns_none(tmp_path, monkeypatch):
     assert opened == []
 
 
+def test_map_save_failure_returns_none(tmp_path, monkeypatch):
+    info = make_info(
+        {
+            "Exif.GPSInfo.GPSLatitude": "14/1 35/1 0/1",
+            "Exif.GPSInfo.GPSLongitude": "120/1 58/1 0/1",
+        }
+    )
+    monkeypatch.setattr(
+        image_info.folium.Map,
+        "save",
+        MagicMock(side_effect=OSError("read-only")),
+    )
+
+    assert info.view_location_on_map(tmp_path) is None
+
+
 def test_read_exif_missing_file_returns_empty():
     assert ImageInfo(Path("missing.jpg")).metadata == {}
+
+
+def test_read_exif_failure_returns_empty(tmp_path, monkeypatch):
+    path = tmp_path / "bad.jpg"
+    path.write_bytes(b"not-an-image")
+    monkeypatch.setattr(
+        image_info.pyexiv2,
+        "ImageData",
+        MagicMock(side_effect=RuntimeError("boom")),
+    )
+
+    assert ImageInfo(path).metadata == {}

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 from PIL import Image
 
 from custom_image_viewer import image_viewer
-from custom_image_viewer.image_viewer import ImageViewer
+from custom_image_viewer.image_viewer import ImageViewer, InfoWindow
 
 
 def make_viewer():
@@ -184,6 +184,79 @@ def test_display_image_without_images_returns():
     viewer.image_list = []
     viewer.current_index = 0
     viewer.display_image()
+
+
+def test_shortcuts_are_bound(monkeypatch):
+    master = MagicMock()
+    monkeypatch.setattr(image_viewer.ttk, "Label", lambda *args, **kwargs: MagicMock())
+    monkeypatch.setattr(image_viewer.ttk, "Frame", lambda *args, **kwargs: MagicMock())
+    monkeypatch.setattr(image_viewer.tk, "Menu", lambda *args, **kwargs: MagicMock())
+    monkeypatch.setattr(image_viewer.tk, "Button", lambda *args, **kwargs: MagicMock())
+
+    ImageViewer(master)
+
+    bound = {call.args[0] for call in master.bind.call_args_list}
+    assert {"<Left>", "<Right>", "<F11>", "<Control-o>", "<Escape>"} <= bound
+
+
+def test_info_window_shows_map_button_without_address(monkeypatch):
+    window = InfoWindow.__new__(InfoWindow)
+    window.image_info = MagicMock()
+    window.info_needed = "Location"
+    window.coordinates = (1.0, 2.0)
+    window.address = None
+    frame = MagicMock()
+    text = MagicMock()
+    button = MagicMock()
+    monkeypatch.setattr(image_viewer.ttk, "Frame", lambda *args, **kwargs: frame)
+    monkeypatch.setattr(image_viewer.ttk, "Text", lambda *args, **kwargs: text)
+    monkeypatch.setattr(image_viewer.ttk, "Button", MagicMock(return_value=button))
+
+    window.create_widgets()
+
+    button.pack.assert_called_once()
+    text.insert.assert_called_once()
+
+
+def test_info_window_hides_map_button_without_coordinates(monkeypatch):
+    window = InfoWindow.__new__(InfoWindow)
+    window.image_info = MagicMock()
+    window.info_needed = "Location"
+    window.coordinates = None
+    window.address = None
+    frame = MagicMock()
+    text = MagicMock()
+    button_factory = MagicMock()
+    monkeypatch.setattr(image_viewer.ttk, "Frame", lambda *args, **kwargs: frame)
+    monkeypatch.setattr(image_viewer.ttk, "Text", lambda *args, **kwargs: text)
+    monkeypatch.setattr(image_viewer.ttk, "Button", button_factory)
+
+    window.create_widgets()
+
+    button_factory.assert_not_called()
+
+
+def test_close_info_window_clears_reference():
+    viewer = make_viewer()
+    info_window = MagicMock()
+    info_window.is_open = True
+    viewer.info_window = info_window
+
+    viewer.close_info_window()
+
+    info_window.destroy.assert_called_once()
+    assert viewer.info_window is None
+
+
+def test_info_window_close_resets_flag():
+    window = InfoWindow.__new__(InfoWindow)
+    window.is_open = True
+    window.destroy = MagicMock()
+
+    window._on_close()
+
+    assert window.is_open is False
+    window.destroy.assert_called_once()
 
 
 def test_display_image_loads_and_sizes(tmp_path, monkeypatch):
